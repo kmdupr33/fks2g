@@ -12,6 +12,15 @@ test("buildRiskEvidence collects frequency, bug-fix, and source signals without 
     bugFixFiles: {
       "src/hot.js": 2,
     },
+    bugFixCommitsByFile: {
+      "src/hot.js": [
+        {
+          hash: "abcdef123456",
+          shortHash: "abcdef1",
+          description: "Fix hot path",
+        },
+      ],
+    },
     ticketJudgment: {
       candidates: [
         {
@@ -30,6 +39,13 @@ test("buildRiskEvidence collects frequency, bug-fix, and source signals without 
     changes: 10,
     frequency: "Often",
     bugFixCount: 2,
+    bugFixes: [
+      {
+        hash: "abcdef123456",
+        shortHash: "abcdef1",
+        description: "Fix hot path",
+      },
+    ],
     sourceLikely: true,
     sourceConfidence: 0.8,
     sourceReason: "Tickets mention this area.",
@@ -45,6 +61,15 @@ test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
     },
     bugFixFiles: {
       "src/hot.js": 2,
+    },
+    bugFixCommitsByFile: {
+      "src/hot.js": [
+        {
+          hash: "abcdef123456",
+          shortHash: "abcdef1",
+          description: "Fix hot path",
+        },
+      ],
     },
     bugFixClassification: {
       bugFixCommitHashes: ["abc", "def"],
@@ -106,6 +131,7 @@ test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
       format: "table",
       model: "test-model",
       embeddingModel: "test-embedding",
+      quiet: true,
     },
   });
 
@@ -146,6 +172,13 @@ test("formatTable includes useful summary columns", () => {
         changes: 4,
         frequency: "Often",
         bugFixCount: 1,
+        bugFixes: [
+          {
+            hash: "abcdef123456",
+            shortHash: "abcdef1",
+            description: "Fix example",
+          },
+        ],
         sourceLikely: false,
         sourceConfidence: 0,
         sourceReason: "",
@@ -156,4 +189,5 @@ test("formatTable includes useful summary columns", () => {
 
   assert.match(table, /Repository: owner\/repo/);
   assert.match(table, /src\/example\.js/);
+  assert.match(table, /abcdef1: Fix example/);
 });

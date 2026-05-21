@@ -5,6 +5,7 @@ interface FetchRecentIssuesOptions {
   recencyDays: number;
   labels: string[];
   token?: string;
+  tokenSource?: string;
 }
 
 interface GitHubIssueResponse {
@@ -18,7 +19,13 @@ interface GitHubIssueResponse {
   pull_request?: unknown;
 }
 
-export async function fetchRecentIssues({ repo, recencyDays, labels, token }: FetchRecentIssuesOptions): Promise<GitHubIssue[]> {
+export async function fetchRecentIssues({
+  repo,
+  recencyDays,
+  labels,
+  token,
+  tokenSource,
+}: FetchRecentIssuesOptions): Promise<GitHubIssue[]> {
   const since = new Date(Date.now() - recencyDays * 24 * 60 * 60 * 1000).toISOString();
   const url = new URL(`https://api.github.com/repos/${repo}/issues`);
   url.searchParams.set("state", "open");
@@ -34,7 +41,7 @@ export async function fetchRecentIssues({ repo, recencyDays, labels, token }: Fe
   }
 
   if (!response.ok) {
-    throw new Error(`GitHub issue fetch failed for ${repo}: ${response.status} ${response.statusText}`);
+    throw new Error(formatGitHubFetchError(repo, response, tokenSource));
   }
 
   const issues = (await response.json()) as GitHubIssueResponse[];
@@ -51,6 +58,19 @@ export async function fetchRecentIssues({ repo, recencyDays, labels, token }: Fe
     }));
 }
 
+export function resolveGitHubToken(env: NodeJS.ProcessEnv = process.env): { token?: string; source?: string } {
+  if (env.F2G_GITHUB_TOKEN) {
+    return { token: env.F2G_GITHUB_TOKEN, source: "F2G_GITHUB_TOKEN" };
+  }
+  if (env.GITHUB_TOKEN) {
+    return { token: env.GITHUB_TOKEN, source: "GITHUB_TOKEN" };
+  }
+  if (env.GH_TOKEN) {
+    return { token: env.GH_TOKEN, source: "GH_TOKEN" };
+  }
+  return {};
+}
+
 function fetchIssues(url: URL, token?: string): Promise<Response> {
   return fetch(url, {
     headers: {
@@ -59,4 +79,16 @@ function fetchIssues(url: URL, token?: string): Promise<Response> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+}
+
+function formatGitHubFetchError(repo: string, response: Response, tokenSource?: string): string {
+  const authHint = tokenSource
+    ? ` using token from ${tokenSource}`
+    : ". Set F2G_GITHUB_TOKEN to a GitHub API token with access to this repository";
+
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
+    return `GitHub issue fetch failed for ${repo}: ${response.status} ${response.statusText}${authHint}. Private repositories require an authenticated token with repo access.`;
+  }
+
+  return `GitHub issue fetch failed for ${repo}: ${response.status} ${response.statusText}`;
 }

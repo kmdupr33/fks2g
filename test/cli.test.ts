@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectCandidateFiles } from "../src/cli.js";
+import { selectCandidateFiles, selectKnownCommitHashes } from "../src/cli.js";
 
 test("selectCandidateFiles uses passed files exactly and ignores dirty files and max-files", () => {
   const files = selectCandidateFiles({
@@ -29,4 +29,13 @@ test("selectCandidateFiles falls back to dirty files sorted by change count", ()
   });
 
   assert.deepEqual(files, ["src/hot.ts", "src/cold.ts"]);
+});
+
+test("selectKnownCommitHashes ignores model-returned hashes that are not in local history", () => {
+  const hashes = selectKnownCommitHashes(
+    ["known-a", "unknown", "known-a", "known-b"],
+    ["known-a", "known-b"],
+  );
+
+  assert.deepEqual(hashes, ["known-a", "known-b"]);
 });

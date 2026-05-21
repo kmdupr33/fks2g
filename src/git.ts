@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-import type { CommitSummary, NumberMap } from "./types.js";
+import type { BugFixCommitMap, CommitSummary, NumberMap } from "./types.js";
 
 export async function getFileChangeMap(repoPath: string): Promise<NumberMap> {
   const log = await git(repoPath, ["log", "--name-only", "--pretty=format:"]);
@@ -68,6 +68,29 @@ export async function getChangedFilesForCommits(repoPath: string, commitHashes: 
   return result;
 }
 
+export async function getBugFixCommitsByFile(
+  repoPath: string,
+  commits: CommitSummary[],
+): Promise<BugFixCommitMap> {
+  const result: BugFixCommitMap = {};
+
+  for (const commit of commits) {
+    const output = await git(repoPath, ["show", "--name-only", "--pretty=format:", commit.hash]);
+    for (const file of output.split("\n").map((line) => line.trim()).filter(Boolean)) {
+      result[file] = [
+        ...(result[file] ?? []),
+        {
+          hash: commit.hash,
+          shortHash: commit.hash.slice(0, 7),
+          description: shortenDescription(commit.subject),
+        },
+      ];
+    }
+  }
+
+  return result;
+}
+
 export async function inferGitHubRepo(repoPath: string): Promise<string> {
   const remote = (await git(repoPath, ["remote", "get-url", "origin"])).trim();
   const sshMatch = remote.match(/github\.com[:/]([^/]+\/[^/.]+)(?:\.git)?$/);
@@ -81,6 +104,10 @@ function parsePorcelainFile(line: string): string {
   const file = line.slice(3);
   const renamedFile = file.split(" -> ").at(1);
   return renamedFile ?? file;
+}
+
+function shortenDescription(subject: string): string {
+  return subject.length <= 80 ? subject : `${subject.slice(0, 77)}...`;
 }
 
 async function git(repoPath: string, args: string[]): Promise<string> {

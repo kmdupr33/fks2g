@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { fetchRecentIssues } from "./github.js";
+import { fetchRecentIssues, resolveGitHubToken } from "./github.js";
 import { inferGitHubRepo } from "./git.js";
 import type { AnalyzeOptions, EmbeddingDocument } from "./types.js";
 
@@ -21,11 +21,13 @@ export async function loadEmbeddingDocuments({
   }
 
   const githubRepo = options.githubRepo ?? (await inferGitHubRepo(repoPath));
+  const githubToken = resolveGitHubToken();
   const issues = await fetchRecentIssues({
     repo: githubRepo,
     recencyDays: options.issueRecencyDays,
     labels: options.issueLabel,
-    token: process.env.GITHUB_TOKEN,
+    token: githubToken.token,
+    tokenSource: githubToken.source,
   });
 
   return {

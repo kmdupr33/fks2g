@@ -62,6 +62,16 @@ f2g analyze \
 
 The default AI provider is `@ai-sdk/openai`. Set the relevant provider API key in your environment, for example `OPENAI_API_KEY`.
 
+For private GitHub repositories, set `F2G_GITHUB_TOKEN` to a GitHub API token with access to the repo:
+
+```sh
+F2G_GITHUB_TOKEN=github_pat_... f2g analyze --github-repo owner/private-repo src/file.ts
+```
+
+`GITHUB_TOKEN` and `GH_TOKEN` are also recognized, but `F2G_GITHUB_TOKEN` takes precedence when present.
+
+Progress logs are written to stderr so JSON and table output on stdout remain usable. Pass `--quiet` to hide progress logs.
+
 Embeddings are cached in `.f2g/cache.json`. Use `--refresh-cache` during analysis, or run `f2g refresh-cache`, to force a refresh.
 
 `--max-files` controls how many dirty files are considered for source-document similarity when file paths are not passed. The default is `0`, which means all dirty files are considered. Set a positive value to cap the analysis after files are ordered by historical change count. When file paths are passed, that explicit set is used as-is.

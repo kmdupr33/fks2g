@@ -1,4 +1,4 @@
-import { embedMany, generateObject, type EmbeddingModel, type LanguageModel } from "ai";
+import { embedMany, generateText, Output, type EmbeddingModel, type LanguageModel } from "ai";
 import { z } from "zod";
 import type {
   AnalyzeOptions,
@@ -47,9 +47,9 @@ export async function classifyBugFixCommits(
     return { bugFixCommitHashes: [], rationale: "No recent commits in the configured window." };
   }
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: await loadTextModel(options),
-    schema: bugFixClassificationSchema,
+    output: Output.object({ schema: bugFixClassificationSchema }),
     prompt: `You classify git commits. Return only JSON with this shape:
 {"bugFixCommitHashes":["<hash>"],"rationale":"short explanation"}
 
@@ -59,7 +59,7 @@ Commits:
 ${commits.map((commit) => `- ${commit.hash} ${commit.date} ${commit.subject}`).join("\n")}`,
   });
 
-  return object;
+  return output;
 }
 
 export async function embedValues(values: string[], options: AnalyzeOptions): Promise<number[][]> {
@@ -106,9 +106,9 @@ export async function rankLikelyChangingFiles({
   });
 
   const topCandidates = fileIssueScores.sort((a, b) => b.maxSimilarity - a.maxSimilarity).slice(0, topFiles);
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: await loadTextModel(aiOptions),
-    schema: ticketJudgmentSchema,
+    output: Output.object({ schema: ticketJudgmentSchema }),
     prompt: `You assess whether files are likely to change soon based on source documents.
 Return only JSON with this shape:
 {"candidates":[{"file":"path","likelyToChange":true,"confidence":0.0,"reason":"short"}],"rationale":"short explanation"}
@@ -132,7 +132,7 @@ ${topCandidates
   .join("\n\n")}`,
   });
 
-  return object;
+  return output;
 }
 
 export async function assessOverallRisk(evidence: RiskEvidence[], options: AnalyzeOptions): Promise<RiskAssessment> {
@@ -140,9 +140,9 @@ export async function assessOverallRisk(evidence: RiskEvidence[], options: Analy
     return { files: [], rationale: "No files were available to assess." };
   }
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: await loadTextModel(options),
-    schema: riskAssessmentSchema,
+    output: Output.object({ schema: riskAssessmentSchema }),
     prompt: `You assess overall code-change risk for each file.
 Return only JSON with this shape:
 {"files":[{"file":"path","level":"low|medium|high","reason":"short explanation"}],"rationale":"short explanation"}
@@ -165,7 +165,7 @@ ${evidence
   .join("\n\n")}`,
   });
 
-  return object;
+  return output;
 }
 
 async function loadTextModel(options: AnalyzeOptions): Promise<LanguageModel> {

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { assessOverallRisk, classifyBugFixCommits, embedValues, rankLikelyChangingFiles } from "./ai.js";
 import { loadCache, saveCache } from "./cache.js";
 import {
+  getBugFixCommitsByFile,
   getChangedFilesForCommits,
   getDirtyFiles,
   getFileChangeMap,
@@ -33,7 +34,7 @@ export async function run(argv: string[]): Promise<void> {
         .default("github-issues"),
     )
     .option("--github-repo <owner/name>", "GitHub repository to read issues from. Defaults to the origin remote.")
-    .option("--bug-recency-days <days>", "Days of commit history to inspect for bug fixes.", parsePositiveInteger, 30)
+    .option("--bug-recency-days <days>", "Days of commit history to inspect for bug fixes.", parsePositiveInteger, 90)
     .option("--issue-recency-days <days>", "Days of GitHub issues to fetch.", parsePositiveInteger, 30)
     .option("--issue-label <label>", "GitHub issue label filter. Can be repeated.", collect, [])
     .option("--text-folder <path>", "Folder containing transcript or planning text files when --embedding-source text-folder is used.")
@@ -44,8 +45,9 @@ export async function run(argv: string[]): Promise<void> {
     .option("--refresh-cache", "Refresh cached issue and filename embeddings.")
     .option("--provider-module <name>", "AI SDK provider package to import.", "@ai-sdk/openai")
     .option("--provider-export <name>", "Provider export name from --provider-module.", "openai")
-    .option("--model <model>", "Configurable text model for commit and ticket judgments.", "gpt-4o-mini")
+    .option("--model <model>", "Configurable text model for commit and ticket judgments.", "gpt-5.4-nano")
     .option("--embedding-model <model>", "Configurable embedding model for filenames and source documents.", "text-embedding-3-small")
+    .option("--quiet", "Hide progress logs.")
     .addOption(new Option("--format <format>", "Output format.").choices(["table", "json"]).default("table"))
     .action(async (files: string[], options: AnalyzeOptions) => {
       const result = await analyzeCommand(files, options);
@@ -65,11 +67,24 @@ export async function run(argv: string[]): Promise<void> {
 }
 
 async function analyzeCommand(files: string[], options: AnalyzeOptions) {
+  const log = createLogger(options);
   const repoPath = resolve(options.repo);
   const cachePath = resolve(repoPath, options.cacheFile);
+  log(`Starting analysis in ${repoPath}`);
+  log(`Using text model ${options.model}`);
+  log(`Using embedding model ${options.embeddingModel}`);
+  log(`Loading cache from ${cachePath}`);
   const cache = await loadCache(cachePath);
 
+  log("Scanning git history for file change frequency");
   const fileChangeMap = await getFileChangeMap(repoPath);
+  log(`Found historical changes for ${Object.keys(fileChangeMap).length} files`);
+
+  if (files.length > 0) {
+    log(`Using ${files.length} file(s) passed on the command line`);
+  } else {
+    log("No files passed; reading dirty files from git status");
+  }
   const dirtyFiles = files.length > 0 ? [] : await getDirtyFiles(repoPath);
   const candidateFiles = selectCandidateFiles({
     files,
@@ -80,17 +95,38 @@ async function analyzeCommand(files: string[], options: AnalyzeOptions) {
   if (candidateFiles.length === 0) {
     throw new Error("No files provided and git has no dirty files to analyze.");
   }
+  log(`Assessing risk for ${candidateFiles.length} file(s)`);
 
+  log(`Loading commits from the last ${options.bugRecencyDays} day(s)`);
   const recentCommits = await getRecentCommits(repoPath, options.bugRecencyDays);
+  log(`Classifying ${recentCommits.length} commit message(s) for bug fixes`);
   const bugFixClassification = await classifyBugFixCommits(recentCommits, options);
-  const bugFixFiles = await getChangedFilesForCommits(repoPath, bugFixClassification.bugFixCommitHashes);
+  const bugFixCommitHashes = selectKnownCommitHashes(
+    bugFixClassification.bugFixCommitHashes,
+    recentCommits.map((commit) => commit.hash),
+  );
+  const ignoredBugFixCommitHashes = bugFixClassification.bugFixCommitHashes.length - bugFixCommitHashes.length;
+  log(`Model identified ${bugFixClassification.bugFixCommitHashes.length} bug-fix commit(s)`);
+  if (ignoredBugFixCommitHashes > 0) {
+    log(`Ignored ${ignoredBugFixCommitHashes} model-returned commit hash(es) that are not in local recent history`);
+  }
+  log("Collecting files touched by bug-fix commits");
+  const bugFixFiles = await getChangedFilesForCommits(repoPath, bugFixCommitHashes);
+  const bugFixCommits = recentCommits.filter((commit) => bugFixCommitHashes.includes(commit.hash));
+  const bugFixCommitsByFile = await getBugFixCommitsByFile(repoPath, bugFixCommits);
 
+  log(`Loading embedding documents from ${options.embeddingSource}`);
   const { documents, repoLabel } = await loadEmbeddingDocuments({ repoPath, options });
+  log(`Loaded ${documents.length} source document(s)`);
 
   const embeddingInputs = buildEmbeddingInputs(candidateFiles, documents);
+  const missingEmbeddings = countMissingEmbeddings(embeddingInputs, cache, Boolean(options.refreshCache));
+  log(`Preparing ${embeddingInputs.length} embedding input(s); ${missingEmbeddings} need refresh`);
   const embeddings = await getEmbeddingsWithCache(embeddingInputs, cache, options);
+  log(`Saving cache to ${cachePath}`);
   await saveCache(cachePath, cache);
 
+  log(`Asking model to judge likely-changing files from top ${options.topFiles} similarity candidate(s)`);
   const ticketJudgment = await rankLikelyChangingFiles({
     files: candidateFiles,
     documents,
@@ -98,18 +134,23 @@ async function analyzeCommand(files: string[], options: AnalyzeOptions) {
     topFiles: options.topFiles,
     aiOptions: options,
   });
+  log("Building risk evidence");
   const riskEvidence = buildRiskEvidence({
     files: candidateFiles,
     fileChangeMap,
     bugFixFiles,
+    bugFixCommitsByFile,
     ticketJudgment,
   });
+  log("Asking model for final risk levels");
   const riskAssessment = await assessOverallRisk(riskEvidence, options);
 
+  log("Formatting results");
   return analyzeRisk({
     files: candidateFiles,
     fileChangeMap,
     bugFixFiles,
+    bugFixCommitsByFile,
     bugFixClassification,
     ticketJudgment,
     riskAssessment,
@@ -177,6 +218,20 @@ function limitFiles(files: string[], maxFiles: number): string[] {
   return maxFiles === 0 ? files : files.slice(0, maxFiles);
 }
 
+function countMissingEmbeddings(inputs: EmbeddingInput[], cache: EmbeddingCache, refreshCache: boolean): number {
+  return inputs.filter((input) => refreshCache || !cache.embeddings[input.key]).length;
+}
+
+function createLogger(options: AnalyzeOptions): (message: string) => void {
+  if (options.quiet) {
+    return () => {};
+  }
+
+  return (message: string) => {
+    console.error(`[f2g] ${message}`);
+  };
+}
+
 export function selectCandidateFiles({
   files,
   dirtyFiles,
@@ -196,4 +251,9 @@ export function selectCandidateFiles({
     [...new Set(dirtyFiles)].sort((a, b) => (fileChangeMap[b] ?? 0) - (fileChangeMap[a] ?? 0)),
     maxFiles,
   );
+}
+
+export function selectKnownCommitHashes(commitHashes: string[], knownCommitHashes: string[]): string[] {
+  const known = new Set(knownCommitHashes);
+  return [...new Set(commitHashes)].filter((hash) => known.has(hash));
 }

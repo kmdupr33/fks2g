@@ -18,6 +18,7 @@ export interface AnalyzeOptions {
   model: string;
   embeddingModel: string;
   format: "table" | "json";
+  quiet?: boolean;
 }
 
 export interface CommitSummary {
@@ -30,6 +31,14 @@ export interface BugFixClassification {
   bugFixCommitHashes: string[];
   rationale: string;
 }
+
+export interface BugFixCommit {
+  hash: string;
+  shortHash: string;
+  description: string;
+}
+
+export type BugFixCommitMap = Record<string, BugFixCommit[]>;
 
 export interface GitHubIssue {
   id: number;
@@ -84,6 +93,7 @@ export interface RiskEvidence {
   changes: number;
   frequency: "Rare" | "Occasional" | "Often";
   bugFixCount: number;
+  bugFixes: BugFixCommit[];
   sourceLikely: boolean;
   sourceConfidence: number;
   sourceReason: string;
@@ -107,6 +117,7 @@ export interface RiskFile {
   changes: number;
   frequency: "Rare" | "Occasional" | "Often";
   bugFixCount: number;
+  bugFixes: BugFixCommit[];
   sourceLikely: boolean;
   sourceConfidence: number;
   sourceReason: string;

@@ -31,6 +31,7 @@ test("loadEmbeddingDocuments reads text-folder documents recursively", async () 
       model: "test-model",
       embeddingModel: "test-embedding",
       format: "table",
+      quiet: true,
     },
   });
 
