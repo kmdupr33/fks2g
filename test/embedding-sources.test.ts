@@ -30,7 +30,7 @@ test("loadEmbeddingDocuments reads text-folder documents recursively", async () 
       providerExport: "openai",
       model: "test-model",
       embeddingModel: "test-embedding",
-      format: "table",
+      format: "markdown",
       quiet: true,
     },
   });

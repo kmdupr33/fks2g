@@ -132,7 +132,25 @@ ${topCandidates
   .join("\n\n")}`,
   });
 
-  return output;
+  const referencesByFile = new Map(
+    topCandidates.map((candidate) => [
+      candidate.file,
+      candidate.matches.map((match) => ({
+        id: match.document.id,
+        title: match.document.title,
+        url: match.document.url,
+        similarity: match.similarity,
+      })),
+    ]),
+  );
+
+  return {
+    ...output,
+    candidates: output.candidates.map((candidate) => ({
+      ...candidate,
+      sourceReferences: referencesByFile.get(candidate.file) ?? [],
+    })),
+  };
 }
 
 export async function assessOverallRisk(evidence: RiskEvidence[], options: AnalyzeOptions): Promise<RiskAssessment> {

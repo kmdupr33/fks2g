@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeRisk, buildRiskEvidence, formatTable } from "../src/risk.js";
+import { analyzeRisk, buildRiskEvidence, formatMarkdown } from "../src/risk.js";
 
 test("buildRiskEvidence collects frequency, bug-fix, and source signals without scoring", () => {
   const evidence = buildRiskEvidence({
@@ -28,6 +28,14 @@ test("buildRiskEvidence collects frequency, bug-fix, and source signals without 
           likelyToChange: true,
           confidence: 0.8,
           reason: "Tickets mention this area.",
+          sourceReferences: [
+            {
+              id: "github-issue:1",
+              title: "#1 Fix hot path",
+              url: "https://github.com/owner/repo/issues/1",
+              similarity: 0.91,
+            },
+          ],
         },
       ],
       rationale: "One file is close to current tickets.",
@@ -49,15 +57,24 @@ test("buildRiskEvidence collects frequency, bug-fix, and source signals without 
     sourceLikely: true,
     sourceConfidence: 0.8,
     sourceReason: "Tickets mention this area.",
+    sourceReferences: [
+      {
+        id: "github-issue:1",
+        title: "#1 Fix hot path",
+        url: "https://github.com/owner/repo/issues/1",
+        similarity: 0.91,
+      },
+    ],
   });
 });
 
-test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
+test("analyzeRisk uses LLM risk assessment levels and sorts by risk", () => {
   const result = analyzeRisk({
-    files: ["src/hot.js", "src/cold.js"],
+    files: ["src/hot.js", "src/cold.js", "src/medium.js"],
     fileChangeMap: {
       "src/hot.js": 10,
       "src/cold.js": 1,
+      "src/medium.js": 0,
     },
     bugFixFiles: {
       "src/hot.js": 2,
@@ -82,6 +99,14 @@ test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
           likelyToChange: true,
           confidence: 0.8,
           reason: "Tickets mention this area.",
+          sourceReferences: [
+            {
+              id: "github-issue:1",
+              title: "#1 Fix hot path",
+              url: "https://github.com/owner/repo/issues/1",
+              similarity: 0.91,
+            },
+          ],
         },
       ],
       rationale: "One file is close to current tickets.",
@@ -97,6 +122,11 @@ test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
           file: "src/cold.js",
           level: "low",
           reason: "Rarely changed and not connected to upcoming work.",
+        },
+        {
+          file: "src/medium.js",
+          level: "medium",
+          reason: "Some model concern despite little history.",
         },
       ],
       rationale: "Risk is based on model reasoning over the evidence.",
@@ -128,7 +158,7 @@ test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
       cacheFile: ".fks2g/cache.json",
       providerModule: "@ai-sdk/openai",
       providerExport: "openai",
-      format: "table",
+      format: "markdown",
       model: "test-model",
       embeddingModel: "test-embedding",
       quiet: true,
@@ -138,11 +168,13 @@ test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
   assert.equal(result.files.at(0)?.file, "src/hot.js");
   assert.equal(result.files.at(0)?.level, "high");
   assert.match(result.files.at(0)?.reason ?? "", /Hot code/);
-  assert.equal(result.files.at(1)?.level, "low");
+  assert.equal(result.files.at(1)?.file, "src/medium.js");
+  assert.equal(result.files.at(1)?.level, "medium");
+  assert.equal(result.files.at(2)?.level, "low");
 });
 
-test("formatTable includes useful summary columns", () => {
-  const table = formatTable({
+test("formatMarkdown renders readable file sections", () => {
+  const markdown = formatMarkdown({
     repo: "owner/repo",
     embeddingSource: "text-folder",
     generatedAt: "2026-05-20T00:00:00.000Z",
@@ -182,12 +214,22 @@ test("formatTable includes useful summary columns", () => {
         sourceLikely: false,
         sourceConfidence: 0,
         sourceReason: "",
+        sourceReferences: [
+          {
+            id: "github-issue:42",
+            title: "#42 Example issue",
+            url: "https://github.com/owner/repo/issues/42",
+            similarity: 0.77,
+          },
+        ],
         file: "src/example.js",
       },
     ],
   });
 
-  assert.match(table, /Repository: owner\/repo/);
-  assert.match(table, /src\/example\.js/);
-  assert.match(table, /abcdef1: Fix example/);
+  assert.match(markdown, /# Risk report for owner\/repo/);
+  assert.match(markdown, /## src\/example\.js:medium/);
+  assert.match(markdown, /Risk reason: Model says this is medium risk\./);
+  assert.match(markdown, /Recent bug fixes: abcdef1: Fix example/);
+  assert.match(markdown, /Source references: \[#42 Example issue\]\(https:\/\/github\.com\/owner\/repo\/issues\/42\)/);
 });

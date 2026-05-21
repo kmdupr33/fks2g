@@ -49,6 +49,7 @@ export function buildRiskEvidence({
         sourceLikely: Boolean(ticket?.likelyToChange),
         sourceConfidence: ticket?.confidence ?? 0,
         sourceReason: ticket?.reason ?? "",
+        sourceReferences: ticket?.sourceReferences ?? [],
       };
     })
     .sort((a, b) => b.changes - a.changes);
@@ -76,7 +77,7 @@ export function analyzeRisk({
       level: assessment?.level ?? "low",
       reason: assessment?.reason ?? "The model did not return a risk assessment for this file.",
     };
-  });
+  }).sort((a, b) => riskLevelRank(b.level) - riskLevelRank(a.level) || b.changes - a.changes);
 
   return {
     repo: repoLabel,
@@ -109,38 +110,69 @@ export function formatJson(result: RiskResult): string {
   return JSON.stringify(result, null, 2);
 }
 
-export function formatTable(result: RiskResult): string {
-  const rows = [
-    ["Risk", "Changes", "Freq", "Bugs", "Bug fixes", "Source", "File"],
-    ...result.files.map((file) => [
-      file.level,
-      String(file.changes),
-      file.frequency,
-      String(file.bugFixCount),
-      formatBugFixes(file.bugFixes),
-      file.sourceLikely ? file.sourceConfidence.toFixed(2) : "-",
-      file.file,
-    ]),
-  ];
-
-  const header = rows[0] ?? [];
-  const widths = header.map((_, column) => Math.max(...rows.map((row) => row[column]?.length ?? 0)));
-  const table = rows
-    .map((row) => row.map((cell, index) => cell.padEnd(widths[index] ?? 0)).join("  "))
-    .join("\n");
-
+export function formatMarkdown(result: RiskResult): string {
   return [
-    `Repository: ${result.repo}`,
-    `Embedding source: ${result.embeddingSource}; documents matched: ${result.summary.matchingDocuments}; bug-fix commits: ${result.summary.bugFixCommits}`,
-    table,
+    `# Risk report for ${result.repo}`,
+    "",
+    `Embedding source: ${result.embeddingSource}`,
+    `Documents matched: ${result.summary.matchingDocuments}`,
+    `Bug-fix commits: ${result.summary.bugFixCommits}`,
+    "",
+    ...result.files.flatMap((file) => [
+      `## ${file.file}:${file.level}`,
+      "",
+      `Risk reason: ${file.reason}`,
+      `Change frequency: ${file.frequency} (${file.changes} historical changes)`,
+      `Recent bug fixes: ${formatBugFixes(file.bugFixes)}`,
+      `Source signal: ${formatSourceSignal(file)}`,
+      `Source references: ${formatSourceReferences(file.sourceReferences)}`,
+      "",
+    ]),
   ].join("\n");
 }
 
 function formatBugFixes(bugFixes: { shortHash: string; description: string }[]): string {
   if (bugFixes.length === 0) {
-    return "-";
+    return "none";
   }
-  return bugFixes.map((bugFix) => `${bugFix.shortHash}: ${bugFix.description}`).join("; ");
+  return bugFixes.map((bugFix) => `${bugFix.shortHash}: ${bugFix.description}`).join(", ");
+}
+
+function formatSourceSignal(file: RiskFile): string {
+  if (!file.sourceLikely) {
+    return file.sourceReason ? `not likely (${file.sourceReason})` : "not indicated";
+  }
+  const reason = file.sourceReason ? ` (${file.sourceReason})` : "";
+  return `likely, confidence ${file.sourceConfidence.toFixed(2)}${reason}`;
+}
+
+function formatSourceReferences(references: RiskFile["sourceReferences"]): string {
+  if (references.length === 0) {
+    return "none";
+  }
+  return references.map((reference) => formatSourceReference(reference)).join(", ");
+}
+
+function formatSourceReference(reference: RiskFile["sourceReferences"][number]): string {
+  const title = escapeMarkdownLinkText(reference.title);
+  if (!reference.url) {
+    return title;
+  }
+  return `[${title}](${reference.url})`;
+}
+
+function escapeMarkdownLinkText(value: string): string {
+  return value.replace(/([\\\]])/g, "\\$1");
+}
+
+function riskLevelRank(level: "low" | "medium" | "high"): number {
+  if (level === "high") {
+    return 3;
+  }
+  if (level === "medium") {
+    return 2;
+  }
+  return 1;
 }
 
 function changeFrequency(changes: number, fileChangeMap: NumberMap): "Rare" | "Occasional" | "Often" {

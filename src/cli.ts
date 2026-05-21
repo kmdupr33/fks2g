@@ -11,7 +11,7 @@ import {
   getRecentCommits,
 } from "./git.js";
 import { loadEmbeddingDocuments } from "./embedding-sources.js";
-import { analyzeRisk, buildRiskEvidence, formatJson, formatTable } from "./risk.js";
+import { analyzeRisk, buildRiskEvidence, formatJson, formatMarkdown } from "./risk.js";
 import type { AnalyzeOptions, EmbeddingCache, EmbeddingDocument, EmbeddingInput, EmbeddingMap } from "./types.js";
 
 const DEFAULT_CACHE_FILE = ".fks2g/cache.json";
@@ -48,10 +48,10 @@ export async function run(argv: string[]): Promise<void> {
     .option("--model <model>", "Configurable text model for commit and ticket judgments.", "gpt-5.4-nano")
     .option("--embedding-model <model>", "Configurable embedding model for filenames and source documents.", "text-embedding-3-small")
     .option("--quiet", "Hide progress logs.")
-    .addOption(new Option("--format <format>", "Output format.").choices(["table", "json"]).default("table"))
+    .addOption(new Option("--format <format>", "Output format.").choices(["markdown", "json"]).default("markdown"))
     .action(async (files: string[], options: AnalyzeOptions) => {
       const result = await analyzeCommand(files, options);
-      console.log(options.format === "json" ? formatJson(result) : formatTable(result));
+      console.log(options.format === "json" ? formatJson(result) : formatMarkdown(result));
     });
 
   program

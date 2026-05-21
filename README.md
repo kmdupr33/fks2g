@@ -1,22 +1,24 @@
 # fks2g
 
-![This is me giving a fuck](https://i.kym-cdn.com/photos/images/newsfeed/000/159/492/1306043448876.jpg)
+Since code review is the bottleneck now, `fks2g` helps developers decide how closely to review code. 
 
-Source: [Know Your Meme](https://knowyourmeme.com/photos/159492-look-at-all-the-fucks-i-give)
+Its for the devs who have already tried this method of reviewing code:
 
-`fks2g` helps developers decide which files are risky to change before they start editing. Run it in a git repo and it reports files as low, medium, or high risk, with a short explanation for each result.
+![img/ff.jpg](look how many fucks i don't give)
 
-It is meant for moments like code review, refactoring, or planning a change when you want to know which parts of the codebase are historically busy, recently bug-prone, or likely to be touched by upcoming work.
+And for deves who have realized that this code review strategy leads to a finger pointing situation when bugs or bad architecture gets shipped:
 
-To make that call, the CLI collects:
+![img/sp.webp](spiderman pointing)
 
-- file change frequency from git history
-- recent bug-fix commits classified by an LLM
-- cosine similarity between file-name embeddings and configurable project text sources
+To inform how closely to review a code change, the CLI collects:
+
 - an LLM judgment about whether the closest files are likely to change soon based on those source documents
+- recent bug-fix commits classified by an LLM
+- file change frequency from git history
+- cosine similarity between file-name embeddings and configurable project text sources
 - an LLM final risk assessment based on the collected evidence
 
-## Install
+## Usage
 
 ```sh
 npm install
@@ -68,7 +70,7 @@ For private GitHub repositories, set `GITHUB_TOKEN` or `GH_TOKEN` to a GitHub AP
 GITHUB_TOKEN=github_pat_... fks2g analyze --github-repo owner/private-repo src/file.ts
 ```
 
-Progress logs are written to stderr so JSON and table output on stdout remain usable. Pass `--quiet` to hide progress logs.
+Progress logs are written to stderr so JSON and Markdown output on stdout remain usable. Pass `--quiet` to hide progress logs.
 
 Embeddings are cached in `.fks2g/cache.json`. Use `--refresh-cache` during analysis, or run `fks2g refresh-cache`, to force a refresh.
 

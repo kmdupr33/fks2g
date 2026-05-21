@@ -17,7 +17,7 @@ export interface AnalyzeOptions {
   providerExport: string;
   model: string;
   embeddingModel: string;
-  format: "table" | "json";
+  format: "markdown" | "json";
   quiet?: boolean;
 }
 
@@ -81,11 +81,19 @@ export interface TicketCandidate {
   likelyToChange: boolean;
   confidence: number;
   reason: string;
+  sourceReferences?: SourceReference[];
 }
 
 export interface TicketJudgment {
   candidates: TicketCandidate[];
   rationale: string;
+}
+
+export interface SourceReference {
+  id: string;
+  title: string;
+  url?: string;
+  similarity?: number;
 }
 
 export interface RiskEvidence {
@@ -97,6 +105,7 @@ export interface RiskEvidence {
   sourceLikely: boolean;
   sourceConfidence: number;
   sourceReason: string;
+  sourceReferences: SourceReference[];
 }
 
 export interface RiskAssessmentFile {
@@ -121,6 +130,7 @@ export interface RiskFile {
   sourceLikely: boolean;
   sourceConfidence: number;
   sourceReason: string;
+  sourceReferences: SourceReference[];
 }
 
 export interface RiskResult {
