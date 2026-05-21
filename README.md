@@ -6,16 +6,16 @@ Its for the devs who have already tried this method of reviewing code:
 
 ![look how many fucks i don't give](./img/ff.jpg)
 
-And for deves who have realized that this code review strategy leads to a finger pointing situation when bugs or bad architecture gets shipped:
+And for devs who have realized that this code review strategy leads to a finger pointing situation when bugs or bad architecture gets shipped:
 
 ![spiderman pointing](./img/sp.jpg)
 
 To inform how closely to review a code change, the CLI collects:
 
-- an LLM judgment about whether the closest files are likely to change soon based on those source documents
+- cosine similarity between file-name embeddings and configurable project text sources
+- an LLM judgment about whether the closest files are likely to change soon based on source documents
 - recent bug-fix commits classified by an LLM
 - file change frequency from git history
-- cosine similarity between file-name embeddings and configurable project text sources
 - an LLM final risk assessment based on the collected evidence
 
 ## Usage
@@ -28,4 +28,4 @@ This analyzes the files from the most recent commit of the react repo if you've 
 
 ## Warning: 0.1 software
 
-This software is as ready for prime-time usage as its name suggests. I've only kicked the tires on it a bit.
+This software is as ready for prime-time usage as its name suggests. I've only kicked the tires on it a bit with openai models. Theoretically, google, anthropic, and bedrock models are also supported.

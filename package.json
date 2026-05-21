@@ -1,6 +1,6 @@
 {
   "name": "fks2g",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A CLI that estimates code change risk from git history, bug-fix commits, and GitHub issue similarity.",
   "license": "MIT",
   "type": "module",
@@ -9,7 +9,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "img"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -19,6 +20,9 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.64",
+    "@ai-sdk/anthropic": "^3.0.78",
+    "@ai-sdk/amazon-bedrock": "4.0.107",
+    "@ai-sdk/google": "^3.0.78",
     "ai": "^6.0.188",
     "commander": "^14.0.3",
     "zod": "^4.4.3"
