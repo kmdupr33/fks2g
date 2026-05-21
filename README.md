@@ -26,6 +26,6 @@ OPENAI_API_KEY=<KEY> npx fks2g analyze -- --repo ../react --github-repo facebook
 
 This analyzes the files from the most recent commit of the react repo if you've got it cloned on your machine. There's a `--help` flag.
 
-## Warning: 0.1 software
+## Warning: 0.X software
 
 This software is as ready for prime-time usage as its name suggests. I've only kicked the tires on it a bit with openai models. Theoretically, google, anthropic, and bedrock models are also supported.
