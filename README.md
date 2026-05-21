@@ -8,7 +8,7 @@ Its for the devs who have already tried this method of reviewing code:
 
 And for deves who have realized that this code review strategy leads to a finger pointing situation when bugs or bad architecture gets shipped:
 
-![spiderman pointing](./img/sp.webp)
+![spiderman pointing](./img/sp.jpg)
 
 To inform how closely to review a code change, the CLI collects:
 
