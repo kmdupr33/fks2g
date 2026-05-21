@@ -21,57 +21,11 @@ To inform how closely to review a code change, the CLI collects:
 ## Usage
 
 ```sh
-npm install
-npm link
+OPENAI_API_KEY=<KEY> npx fks2g analyze -- --repo ../react --github-repo facebook/react --model gpt-5.4-nano $(git -C ../react show --name-only --format='' | tr '\n' ' ') 
 ```
 
-## Usage
+This analyzes the files from the most recent commit of the react repo if you've got it cloned on your machine. There's a `--help` flag.
 
-```sh
-fks2g analyze --github-repo owner/repo
-```
+## Warning: 0.1 software
 
-By default, `analyze` assesses dirty files from `git status`. Pass file paths to assess an explicit set instead:
-
-```sh
-fks2g analyze src/router.ts src/cache.ts --github-repo owner/repo
-```
-
-Use meeting transcripts or other local text files instead of GitHub issues:
-
-```sh
-fks2g analyze \
-  --embedding-source text-folder \
-  --text-folder ./transcripts \
-  --text-glob "**/*.{txt,md}"
-```
-
-Useful options:
-
-```sh
-fks2g analyze \
-  --bug-recency-days 45 \
-  --embedding-source github-issues \
-  --issue-recency-days 30 \
-  --issue-label bug \
-  --issue-label backend \
-  --max-files 0 \
-  --top-files 3 \
-  --model gpt-4o-mini \
-  --embedding-model text-embedding-3-small \
-  --refresh-cache
-```
-
-The default AI provider is `@ai-sdk/openai`. Set the relevant provider API key in your environment, for example `OPENAI_API_KEY`.
-
-For private GitHub repositories, set `GITHUB_TOKEN` or `GH_TOKEN` to a GitHub API token with access to the repo:
-
-```sh
-GITHUB_TOKEN=github_pat_... fks2g analyze --github-repo owner/private-repo src/file.ts
-```
-
-Progress logs are written to stderr so JSON and Markdown output on stdout remain usable. Pass `--quiet` to hide progress logs.
-
-Embeddings are cached in `.fks2g/cache.json`. Use `--refresh-cache` during analysis, or run `fks2g refresh-cache`, to force a refresh.
-
-`--max-files` controls how many dirty files are considered for source-document similarity when file paths are not passed. The default is `0`, which means all dirty files are considered. Set a positive value to cap the analysis after files are ordered by historical change count. When file paths are passed, that explicit set is used as-is.
+This software is as ready for prime-time usage as its name suggests. I've only kicked the tires on it a bit.

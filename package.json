@@ -1,6 +1,6 @@
 {
   "name": "fks2g",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A CLI that estimates code change risk from git history, bug-fix commits, and GitHub issue similarity.",
   "license": "MIT",
   "type": "module",
