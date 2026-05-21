@@ -4,11 +4,11 @@ Since code review is the bottleneck now, `fks2g` helps developers decide how clo
 
 Its for the devs who have already tried this method of reviewing code:
 
-![look how many fucks i don't give](./img/ff.jpg)
+![look how many fucks i don't give](https://raw.githubusercontent.com/kmdupr33/fks2g/refs/heads/main/img/ff.jpg)
 
 And for devs who have realized that this code review strategy leads to a finger pointing situation when bugs or bad architecture gets shipped:
 
-![spiderman pointing](./img/sp.jpg)
+![spiderman pointing](https://github.com/kmdupr33/fks2g/blob/main/img/sp.jpg?raw=true)
 
 To inform how closely to review a code change, the CLI collects:
 
