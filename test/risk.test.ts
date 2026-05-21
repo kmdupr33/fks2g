@@ -125,7 +125,7 @@ test("analyzeRisk uses LLM risk assessment levels and reasons", () => {
       maxFiles: 50,
       topFiles: 3,
       repo: ".",
-      cacheFile: ".f2g/cache.json",
+      cacheFile: ".fks2g/cache.json",
       providerModule: "@ai-sdk/openai",
       providerExport: "openai",
       format: "table",

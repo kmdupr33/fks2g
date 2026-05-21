@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { loadEmbeddingDocuments } from "../src/embedding-sources.js";
 
 test("loadEmbeddingDocuments reads text-folder documents recursively", async () => {
-  const folder = await mkdtemp(join(tmpdir(), "f2g-transcripts-"));
+  const folder = await mkdtemp(join(tmpdir(), "fks2g-transcripts-"));
   const nested = join(folder, "nested");
   await mkdir(nested);
   await writeFile(join(folder, "standup.txt"), "Discussed auth changes.");
@@ -25,7 +25,7 @@ test("loadEmbeddingDocuments reads text-folder documents recursively", async () 
       issueLabel: [],
       maxFiles: 50,
       topFiles: 3,
-      cacheFile: ".f2g/cache.json",
+      cacheFile: ".fks2g/cache.json",
       providerModule: "@ai-sdk/openai",
       providerExport: "openai",
       model: "test-model",

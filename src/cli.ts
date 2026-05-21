@@ -14,13 +14,13 @@ import { loadEmbeddingDocuments } from "./embedding-sources.js";
 import { analyzeRisk, buildRiskEvidence, formatJson, formatTable } from "./risk.js";
 import type { AnalyzeOptions, EmbeddingCache, EmbeddingDocument, EmbeddingInput, EmbeddingMap } from "./types.js";
 
-const DEFAULT_CACHE_FILE = ".f2g/cache.json";
+const DEFAULT_CACHE_FILE = ".fks2g/cache.json";
 
 export async function run(argv: string[]): Promise<void> {
   const program = new Command();
 
   program
-    .name("f2g")
+    .name("fks2g")
     .description("Estimate code-change risk from git history, recent bug fixes, and GitHub ticket similarity.")
     .version("0.1.0");
 
@@ -56,7 +56,7 @@ export async function run(argv: string[]): Promise<void> {
 
   program
     .command("refresh-cache")
-    .description("Delete the local f2g cache so the next analyze run refetches issues and embeddings.")
+    .description("Delete the local fks2g cache so the next analyze run refetches issues and embeddings.")
     .option("--cache-file <path>", "Local embedding cache file.", DEFAULT_CACHE_FILE)
     .action(async (options: { cacheFile: string }) => {
       await rm(resolve(options.cacheFile), { force: true });
@@ -228,7 +228,7 @@ function createLogger(options: AnalyzeOptions): (message: string) => void {
   }
 
   return (message: string) => {
-    console.error(`[f2g] ${message}`);
+    console.error(`[fks2g] ${message}`);
   };
 }
 

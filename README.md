@@ -1,10 +1,10 @@
-# f2g
+# fks2g
 
 ![This is me giving a fuck](https://i.kym-cdn.com/photos/images/newsfeed/000/159/492/1306043448876.jpg)
 
 Source: [Know Your Meme](https://knowyourmeme.com/photos/159492-look-at-all-the-fucks-i-give)
 
-`f2g` helps developers decide which files are risky to change before they start editing. Run it in a git repo and it reports files as low, medium, or high risk, with a short explanation for each result.
+`fks2g` helps developers decide which files are risky to change before they start editing. Run it in a git repo and it reports files as low, medium, or high risk, with a short explanation for each result.
 
 It is meant for moments like code review, refactoring, or planning a change when you want to know which parts of the codebase are historically busy, recently bug-prone, or likely to be touched by upcoming work.
 
@@ -26,19 +26,19 @@ npm link
 ## Usage
 
 ```sh
-f2g analyze --github-repo owner/repo
+fks2g analyze --github-repo owner/repo
 ```
 
 By default, `analyze` assesses dirty files from `git status`. Pass file paths to assess an explicit set instead:
 
 ```sh
-f2g analyze src/router.ts src/cache.ts --github-repo owner/repo
+fks2g analyze src/router.ts src/cache.ts --github-repo owner/repo
 ```
 
 Use meeting transcripts or other local text files instead of GitHub issues:
 
 ```sh
-f2g analyze \
+fks2g analyze \
   --embedding-source text-folder \
   --text-folder ./transcripts \
   --text-glob "**/*.{txt,md}"
@@ -47,7 +47,7 @@ f2g analyze \
 Useful options:
 
 ```sh
-f2g analyze \
+fks2g analyze \
   --bug-recency-days 45 \
   --embedding-source github-issues \
   --issue-recency-days 30 \
@@ -62,16 +62,16 @@ f2g analyze \
 
 The default AI provider is `@ai-sdk/openai`. Set the relevant provider API key in your environment, for example `OPENAI_API_KEY`.
 
-For private GitHub repositories, set `F2G_GITHUB_TOKEN` to a GitHub API token with access to the repo:
+For private GitHub repositories, set `FKS2G_GITHUB_TOKEN` to a GitHub API token with access to the repo:
 
 ```sh
-F2G_GITHUB_TOKEN=github_pat_... f2g analyze --github-repo owner/private-repo src/file.ts
+FKS2G_GITHUB_TOKEN=github_pat_... fks2g analyze --github-repo owner/private-repo src/file.ts
 ```
 
-`GITHUB_TOKEN` and `GH_TOKEN` are also recognized, but `F2G_GITHUB_TOKEN` takes precedence when present.
+`GITHUB_TOKEN` and `GH_TOKEN` are also recognized, but `FKS2G_GITHUB_TOKEN` takes precedence when present.
 
 Progress logs are written to stderr so JSON and table output on stdout remain usable. Pass `--quiet` to hide progress logs.
 
-Embeddings are cached in `.f2g/cache.json`. Use `--refresh-cache` during analysis, or run `f2g refresh-cache`, to force a refresh.
+Embeddings are cached in `.fks2g/cache.json`. Use `--refresh-cache` during analysis, or run `fks2g refresh-cache`, to force a refresh.
 
 `--max-files` controls how many dirty files are considered for source-document similarity when file paths are not passed. The default is `0`, which means all dirty files are considered. Set a positive value to cap the analysis after files are ordered by historical change count. When file paths are passed, that explicit set is used as-is.

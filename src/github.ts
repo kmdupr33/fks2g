@@ -59,8 +59,8 @@ export async function fetchRecentIssues({
 }
 
 export function resolveGitHubToken(env: NodeJS.ProcessEnv = process.env): { token?: string; source?: string } {
-  if (env.F2G_GITHUB_TOKEN) {
-    return { token: env.F2G_GITHUB_TOKEN, source: "F2G_GITHUB_TOKEN" };
+  if (env.FKS2G_GITHUB_TOKEN) {
+    return { token: env.FKS2G_GITHUB_TOKEN, source: "FKS2G_GITHUB_TOKEN" };
   }
   if (env.GITHUB_TOKEN) {
     return { token: env.GITHUB_TOKEN, source: "GITHUB_TOKEN" };
@@ -84,7 +84,7 @@ function fetchIssues(url: URL, token?: string): Promise<Response> {
 function formatGitHubFetchError(repo: string, response: Response, tokenSource?: string): string {
   const authHint = tokenSource
     ? ` using token from ${tokenSource}`
-    : ". Set F2G_GITHUB_TOKEN to a GitHub API token with access to this repository";
+    : ". Set FKS2G_GITHUB_TOKEN to a GitHub API token with access to this repository";
 
   if (response.status === 401 || response.status === 403 || response.status === 404) {
     return `GitHub issue fetch failed for ${repo}: ${response.status} ${response.statusText}${authHint}. Private repositories require an authenticated token with repo access.`;
