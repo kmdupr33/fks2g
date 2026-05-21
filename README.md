@@ -62,13 +62,11 @@ fks2g analyze \
 
 The default AI provider is `@ai-sdk/openai`. Set the relevant provider API key in your environment, for example `OPENAI_API_KEY`.
 
-For private GitHub repositories, set `FKS2G_GITHUB_TOKEN` to a GitHub API token with access to the repo:
+For private GitHub repositories, set `GITHUB_TOKEN` or `GH_TOKEN` to a GitHub API token with access to the repo:
 
 ```sh
-FKS2G_GITHUB_TOKEN=github_pat_... fks2g analyze --github-repo owner/private-repo src/file.ts
+GITHUB_TOKEN=github_pat_... fks2g analyze --github-repo owner/private-repo src/file.ts
 ```
-
-`GITHUB_TOKEN` and `GH_TOKEN` are also recognized, but `FKS2G_GITHUB_TOKEN` takes precedence when present.
 
 Progress logs are written to stderr so JSON and table output on stdout remain usable. Pass `--quiet` to hide progress logs.
 
