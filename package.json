@@ -1,0 +1,32 @@
+{
+  "name": "f2g",
+  "version": "0.1.0",
+  "description": "A CLI that estimates code change risk from git history, bug-fix commits, and GitHub issue similarity.",
+  "type": "module",
+  "bin": {
+    "f2g": "./dist/bin/f2g.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node ./dist/bin/f2g.js",
+    "check": "npm run build && npm test",
+    "test": "node --test dist/test/*.test.js"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.64",
+    "ai": "^6.0.188",
+    "commander": "^14.0.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
