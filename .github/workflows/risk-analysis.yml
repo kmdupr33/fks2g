@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   analyze:
@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        # The risk script diffs the PR base and head SHAs, so fetch full history
+        # to ensure the base commit object is present in the local checkout.
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

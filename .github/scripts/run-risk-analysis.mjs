@@ -1,14 +1,10 @@
 #!/usr/bin/env zx
 
-const { BASE_SHA, HEAD_SHA, GITHUB_REPOSITORY } = process.env;
+const { BASE_SHA, GITHUB_REPOSITORY, HEAD_SHA } = process.env;
 
-if (!BASE_SHA || !HEAD_SHA) {
-  throw new Error("BASE_SHA and HEAD_SHA must be set.");
-}
-
-if (!GITHUB_REPOSITORY) {
-  throw new Error("GITHUB_REPOSITORY must be set.");
-}
+if (!GITHUB_REPOSITORY) throw new Error("GITHUB_REPOSITORY must be set.");
+if (!BASE_SHA) throw new Error("BASE_SHA must be set.");
+if (!HEAD_SHA) throw new Error("HEAD_SHA must be set.");
 
 const diff = await $`git diff --name-only -z --diff-filter=ACMRT ${BASE_SHA} ${HEAD_SHA}`;
 const changedFiles = diff.stdout.split("\0").filter(Boolean);
