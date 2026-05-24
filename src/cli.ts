@@ -10,6 +10,7 @@ import {
   getFileChangeMap,
   getRecentCommits,
 } from "./git.js";
+import { postPullRequestRiskCommentIfNeeded } from "./github.js";
 import { loadEmbeddingDocuments } from "./embedding-sources.js";
 import { analyzeRisk, buildRiskEvidence, formatJson, formatMarkdown } from "./risk.js";
 import type { AnalyzeOptions, EmbeddingCache, EmbeddingDocument, EmbeddingInput, EmbeddingMap } from "./types.js";
@@ -51,7 +52,12 @@ export async function run(argv: string[]): Promise<void> {
     .addOption(new Option("--format <format>", "Output format.").choices(["markdown", "json"]).default("markdown"))
     .action(async (files: string[], options: AnalyzeOptions) => {
       const result = await analyzeCommand(files, options);
-      console.log(options.format === "json" ? formatJson(result) : formatMarkdown(result));
+      const rendered = options.format === "json" ? formatJson(result) : formatMarkdown(result);
+      console.log(rendered);
+      await postPullRequestRiskCommentIfNeeded({
+        repo: result.repo,
+        body: `## fks2g risk analysis\n\n${formatMarkdown(result)}`,
+      });
     });
 
   program
