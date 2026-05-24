@@ -1,4 +1,5 @@
 import type { GitHubIssue } from "./types.js";
+import { readFile } from "node:fs/promises";
 
 interface FetchRecentIssuesOptions {
   repo: string;
@@ -66,6 +67,86 @@ export function resolveGitHubToken(env: NodeJS.ProcessEnv = process.env): { toke
     return { token: env.GH_TOKEN, source: "GH_TOKEN" };
   }
   return {};
+}
+
+interface PostPullRequestRiskCommentOptions {
+  repo: string;
+  body: string;
+  env?: NodeJS.ProcessEnv;
+}
+
+export async function postPullRequestRiskCommentIfNeeded({
+  repo,
+  body,
+  env = process.env,
+}: PostPullRequestRiskCommentOptions): Promise<boolean> {
+  if (!isCiEnvironment(env)) {
+    return false;
+  }
+
+  const branch = resolveBranchName(env);
+  if (!branch || branch === "main") {
+    return false;
+  }
+
+  const pullRequestNumber = await resolvePullRequestNumber(env);
+  if (!pullRequestNumber) {
+    return false;
+  }
+
+  const { token } = resolveGitHubToken(env);
+  if (!token) {
+    return false;
+  }
+
+  const response = await fetch(`https://api.github.com/repos/${repo}/issues/${pullRequestNumber}/comments`, {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ body }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`GitHub PR comment failed for ${repo}#${pullRequestNumber}: ${response.status} ${response.statusText}`);
+  }
+
+  return true;
+}
+
+function isCiEnvironment(env: NodeJS.ProcessEnv): boolean {
+  const value = env.CI;
+  if (!value) {
+    return false;
+  }
+  return value.toLowerCase() !== "false";
+}
+
+function resolveBranchName(env: NodeJS.ProcessEnv): string | undefined {
+  return env.GITHUB_HEAD_REF || env.GITHUB_REF_NAME || env.BRANCH_NAME || env.CI_COMMIT_BRANCH;
+}
+
+async function resolvePullRequestNumber(env: NodeJS.ProcessEnv): Promise<number | undefined> {
+  const fromRef = env.GITHUB_REF?.match(/^refs\/pull\/(\d+)\//)?.[1];
+  if (fromRef) {
+    return Number.parseInt(fromRef, 10);
+  }
+
+  const eventPath = env.GITHUB_EVENT_PATH;
+  if (!eventPath) {
+    return undefined;
+  }
+
+  try {
+    const raw = await readFile(eventPath, "utf8");
+    const payload = JSON.parse(raw) as { pull_request?: { number?: number } };
+    return payload.pull_request?.number;
+  } catch {
+    return undefined;
+  }
 }
 
 function fetchIssues(url: URL, token?: string): Promise<Response> {
