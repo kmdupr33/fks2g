@@ -5,7 +5,12 @@ import { assessOverallRisk, classifyBugFixCommits, embedValues, rankLikelyChangi
 import { loadCache, saveCache } from "./cache.js";
 import {
   getBugFixCommitsByFile,
+  getChangedFilesForCommit,
   getChangedFilesForCommits,
+  getCommit,
+  getCommitIsoDate,
+  getCommitRange,
+  getCommitsAfterWithinDays,
   getDirtyFiles,
   getFileChangeMap,
   getRecentCommits,
@@ -13,7 +18,21 @@ import {
 import { postPullRequestRiskCommentIfNeeded } from "./github.js";
 import { loadEmbeddingDocuments } from "./embedding-sources.js";
 import { analyzeRisk, buildRiskEvidence, formatJson, formatMarkdown } from "./risk.js";
-import type { AnalyzeOptions, EmbeddingCache, EmbeddingDocument, EmbeddingInput, EmbeddingMap } from "./types.js";
+import {
+  buildBenchmarkFileResult,
+  finalizeBenchmarkCommitResult,
+  finalizeBenchmarkResult,
+  formatBenchmarkJson,
+  formatBenchmarkMarkdown,
+} from "./benchmark.js";
+import type {
+  AnalyzeOptions,
+  BenchmarkOptions,
+  EmbeddingCache,
+  EmbeddingDocument,
+  EmbeddingInput,
+  EmbeddingMap,
+} from "./types.js";
 
 const DEFAULT_CACHE_FILE = ".fks2g/cache.json";
 
@@ -25,9 +44,49 @@ export async function run(argv: string[]): Promise<void> {
     .description("Estimate code-change risk from git history, recent bug fixes, and GitHub ticket similarity.")
     .version("0.1.0");
 
-  program
-    .command("analyze")
+  addAnalyzeOptions(program.command("analyze"))
     .argument("[files...]", "Files to analyze. Defaults to dirty git files when omitted.")
+    .action(async (files: string[], options: AnalyzeOptions) => {
+      const result = await analyzeCommand(files, options);
+      const rendered = options.format === "json" ? formatJson(result) : formatMarkdown(result);
+      console.log(rendered);
+      await postPullRequestRiskCommentIfNeeded({
+        repo: result.repo,
+        body: `## fks2g risk analysis\n\n${formatMarkdown(result)}`,
+      });
+    });
+
+  addAnalyzeOptions(program.command("benchmark"))
+    .description("Benchmark risk ratings across a historical commit range.")
+    .argument("[files...]", "Files to benchmark. Defaults to files changed by each benchmarked commit.")
+    .option("--from-commit <ref>", "First commit to benchmark when --commit-range is not provided.")
+    .option("--to-commit <ref>", "Last commit to benchmark when --commit-range is not provided.", "HEAD")
+    .option("--commit-range <range>", "Git revision range to benchmark, such as main~20..main.")
+    .option(
+      "--forecast-days <days>",
+      "Days after each assessment to check for file changes or bug fixes.",
+      parsePositiveInteger,
+      30,
+    )
+    .action(async (files: string[], options: BenchmarkOptions) => {
+      const result = await benchmarkCommand(files, options);
+      console.log(options.format === "json" ? formatBenchmarkJson(result) : formatBenchmarkMarkdown(result));
+    });
+
+  program
+    .command("refresh-cache")
+    .description("Delete the local fks2g cache so the next analyze run refetches issues and embeddings.")
+    .option("--cache-file <path>", "Local embedding cache file.", DEFAULT_CACHE_FILE)
+    .action(async (options: { cacheFile: string }) => {
+      await rm(resolve(options.cacheFile), { force: true });
+      console.log(`Deleted ${options.cacheFile}`);
+    });
+
+  await program.parseAsync(argv);
+}
+
+function addAnalyzeOptions(command: Command): Command {
+  return command
     .option("--repo <path>", "Git repository path.", ".")
     .addOption(
       new Option("--embedding-source <source>", "Text source to embed and compare against file names.")
@@ -49,27 +108,7 @@ export async function run(argv: string[]): Promise<void> {
     .option("--model <model>", "Configurable text model for commit and ticket judgments.", "gpt-5.4-nano")
     .option("--embedding-model <model>", "Configurable embedding model for filenames and source documents.", "text-embedding-3-small")
     .option("--quiet", "Hide progress logs.")
-    .addOption(new Option("--format <format>", "Output format.").choices(["markdown", "json"]).default("markdown"))
-    .action(async (files: string[], options: AnalyzeOptions) => {
-      const result = await analyzeCommand(files, options);
-      const rendered = options.format === "json" ? formatJson(result) : formatMarkdown(result);
-      console.log(rendered);
-      await postPullRequestRiskCommentIfNeeded({
-        repo: result.repo,
-        body: `## fks2g risk analysis\n\n${formatMarkdown(result)}`,
-      });
-    });
-
-  program
-    .command("refresh-cache")
-    .description("Delete the local fks2g cache so the next analyze run refetches issues and embeddings.")
-    .option("--cache-file <path>", "Local embedding cache file.", DEFAULT_CACHE_FILE)
-    .action(async (options: { cacheFile: string }) => {
-      await rm(resolve(options.cacheFile), { force: true });
-      console.log(`Deleted ${options.cacheFile}`);
-    });
-
-  await program.parseAsync(argv);
+    .addOption(new Option("--format <format>", "Output format.").choices(["markdown", "json"]).default("markdown"));
 }
 
 async function analyzeCommand(files: string[], options: AnalyzeOptions) {
@@ -83,7 +122,7 @@ async function analyzeCommand(files: string[], options: AnalyzeOptions) {
   const cache = await loadCache(cachePath);
 
   log("Scanning git history for file change frequency");
-  const fileChangeMap = await getFileChangeMap(repoPath);
+  const fileChangeMap = await getFileChangeMap(repoPath, options.asOfCommit);
   log(`Found historical changes for ${Object.keys(fileChangeMap).length} files`);
 
   if (files.length > 0) {
@@ -91,7 +130,11 @@ async function analyzeCommand(files: string[], options: AnalyzeOptions) {
   } else {
     log("No files passed; reading dirty files from git status");
   }
-  const dirtyFiles = files.length > 0 ? [] : await getDirtyFiles(repoPath);
+  const dirtyFiles = files.length > 0
+    ? []
+    : options.asOfCommit
+      ? await getChangedFilesForCommit(repoPath, options.asOfCommit)
+      : await getDirtyFiles(repoPath);
   const candidateFiles = selectCandidateFiles({
     files,
     dirtyFiles,
@@ -104,7 +147,12 @@ async function analyzeCommand(files: string[], options: AnalyzeOptions) {
   log(`Assessing risk for ${candidateFiles.length} file(s)`);
 
   log(`Loading commits from the last ${options.bugRecencyDays} day(s)`);
-  const recentCommits = await getRecentCommits(repoPath, options.bugRecencyDays);
+  const recentCommits = await getRecentCommits(
+    repoPath,
+    options.bugRecencyDays,
+    options.asOfCommit,
+    options.asOfDate,
+  );
   log(`Classifying ${recentCommits.length} commit message(s) for bug fixes`);
   const bugFixClassification = await classifyBugFixCommits(recentCommits, options);
   const bugFixCommitHashes = selectKnownCommitHashes(
@@ -164,6 +212,91 @@ async function analyzeCommand(files: string[], options: AnalyzeOptions) {
     repoLabel,
     options,
   });
+}
+
+async function benchmarkCommand(files: string[], options: BenchmarkOptions) {
+  const log = createLogger(options);
+  const repoPath = resolve(options.repo);
+  const commits = await resolveBenchmarkCommits(repoPath, options);
+  if (commits.length === 0) {
+    throw new Error("No commits found in the requested benchmark range.");
+  }
+
+  log(`Benchmarking ${commits.length} commit(s)`);
+  const commitResults = [];
+  for (const commit of commits) {
+    const asOfDate = await getCommitIsoDate(repoPath, commit.hash);
+    log(`Benchmarking ${commit.hash.slice(0, 7)} from ${commit.date}`);
+    const riskResult = await analyzeCommand(files, {
+      ...options,
+      asOfCommit: commit.hash,
+      asOfDate,
+      quiet: true,
+    });
+
+    const futureCommits = await getCommitsAfterWithinDays(repoPath, commit.hash, options.forecastDays);
+    const futureBugFixClassification = await classifyBugFixCommits(futureCommits, { ...options, quiet: true });
+    const futureBugFixHashes = selectKnownCommitHashes(
+      futureBugFixClassification.bugFixCommitHashes,
+      futureCommits.map((futureCommit) => futureCommit.hash),
+    );
+    const changedFiles = new Set(
+      Object.keys(await getChangedFilesForCommits(repoPath, futureCommits.map((futureCommit) => futureCommit.hash))),
+    );
+    const bugFixFiles = new Set(Object.keys(await getChangedFilesForCommits(repoPath, futureBugFixHashes)));
+
+    commitResults.push(
+      finalizeBenchmarkCommitResult({
+        commit: commit.hash,
+        shortCommit: commit.hash.slice(0, 7),
+        date: commit.date,
+        subject: commit.subject,
+        files: riskResult.files.map((file) =>
+          buildBenchmarkFileResult({
+            commit: commit.hash,
+            date: commit.date,
+            file: file.file,
+            level: file.level,
+            changedInForecastWindow: changedFiles.has(file.file),
+            bugFixInForecastWindow: bugFixFiles.has(file.file),
+          }),
+        ),
+      }),
+    );
+  }
+
+  return finalizeBenchmarkResult({
+    repo: options.githubRepo ?? resolve(repoPath),
+    generatedAt: new Date().toISOString(),
+    inputs: {
+      bugRecencyDays: options.bugRecencyDays,
+      issueRecencyDays: options.issueRecencyDays,
+      issueLabels: options.issueLabel,
+      textFolder: options.textFolder,
+      textGlob: options.textGlob,
+      maxFiles: options.maxFiles,
+      topFiles: options.topFiles,
+      model: options.model,
+      embeddingModel: options.embeddingModel,
+      fromCommit: options.fromCommit,
+      toCommit: options.toCommit,
+      commitRange: options.commitRange,
+      forecastDays: options.forecastDays,
+    },
+    commits: commitResults,
+  });
+}
+
+async function resolveBenchmarkCommits(repoPath: string, options: BenchmarkOptions) {
+  if (options.commitRange) {
+    return getCommitRange(repoPath, options.commitRange);
+  }
+  if (!options.fromCommit) {
+    throw new Error("Pass --commit-range or --from-commit to select commits to benchmark.");
+  }
+  const fromCommit = await getCommit(repoPath, options.fromCommit);
+  const laterCommits = await getCommitRange(repoPath, `${options.fromCommit}..${options.toCommit ?? "HEAD"}`);
+  return [fromCommit, ...laterCommits.filter((commit) => commit.hash !== fromCommit.hash)];
 }
 
 function buildEmbeddingInputs(files: string[], documents: EmbeddingDocument[]): EmbeddingInput[] {

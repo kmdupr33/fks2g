@@ -4,8 +4,12 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 import type { BugFixCommitMap, CommitSummary, NumberMap } from "./types.js";
 
-export async function getFileChangeMap(repoPath: string): Promise<NumberMap> {
-  const log = await git(repoPath, ["log", "--name-only", "--pretty=format:"]);
+export async function getFileChangeMap(repoPath: string, untilRef?: string): Promise<NumberMap> {
+  const args = ["log", "--name-only", "--pretty=format:"];
+  if (untilRef) {
+    args.push(untilRef);
+  }
+  const log = await git(repoPath, args);
   const map: NumberMap = {};
 
   for (const line of log.split("\n")) {
@@ -19,8 +23,8 @@ export async function getFileChangeMap(repoPath: string): Promise<NumberMap> {
   return map;
 }
 
-export async function getTrackedFiles(repoPath: string): Promise<string[]> {
-  const output = await git(repoPath, ["ls-files"]);
+export async function getTrackedFiles(repoPath: string, ref = "HEAD"): Promise<string[]> {
+  const output = await git(repoPath, ["ls-tree", "-r", "--name-only", ref]);
   return output.split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
@@ -38,21 +42,68 @@ export async function getDirtyFiles(repoPath: string): Promise<string[]> {
   ];
 }
 
-export async function getRecentCommits(repoPath: string, recencyDays: number): Promise<CommitSummary[]> {
-  const output = await git(repoPath, [
+export async function getRecentCommits(
+  repoPath: string,
+  recencyDays: number,
+  untilRef?: string,
+  asOfDate?: string,
+): Promise<CommitSummary[]> {
+  const since = asOfDate
+    ? new Date(new Date(asOfDate).getTime() - recencyDays * 24 * 60 * 60 * 1000).toISOString()
+    : `${recencyDays}.days`;
+  const args = [
     "log",
-    `--since=${recencyDays}.days`,
+    `--since=${since}`,
     "--date=short",
     "--pretty=format:%H%x09%ad%x09%s",
-  ]);
+  ];
+  if (asOfDate) {
+    args.splice(2, 0, `--until=${asOfDate}`);
+  }
+  if (untilRef) {
+    args.push(untilRef);
+  }
+  const output = await git(repoPath, args);
 
-  return output
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      const [hash = "", date = "", ...subjectParts] = line.split("\t");
-      return { hash, date, subject: subjectParts.join("\t") };
-    });
+  return parseCommitSummaries(output);
+}
+
+export async function getCommitRange(repoPath: string, range: string): Promise<CommitSummary[]> {
+  const output = await git(repoPath, ["log", "--reverse", "--date=short", "--pretty=format:%H%x09%ad%x09%s", range]);
+  return parseCommitSummaries(output);
+}
+
+export async function getCommit(repoPath: string, ref: string): Promise<CommitSummary> {
+  const output = await git(repoPath, ["show", "-s", "--date=short", "--pretty=format:%H%x09%ad%x09%s", ref]);
+  const commit = parseCommitSummaries(output).at(0);
+  if (!commit) {
+    throw new Error(`Could not resolve commit ${ref}`);
+  }
+  return commit;
+}
+
+export async function getCommitsAfterWithinDays(repoPath: string, ref: string, days: number): Promise<CommitSummary[]> {
+  const isoDate = await getCommitIsoDate(repoPath, ref);
+  const until = new Date(new Date(isoDate).getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+  const output = await git(repoPath, [
+    "log",
+    "--reverse",
+    "--date=short",
+    "--pretty=format:%H%x09%ad%x09%s",
+    `--after=${isoDate}`,
+    `--until=${until}`,
+    `${ref}..HEAD`,
+  ]);
+  return parseCommitSummaries(output);
+}
+
+export async function getCommitIsoDate(repoPath: string, ref: string): Promise<string> {
+  return (await git(repoPath, ["show", "-s", "--format=%cI", ref])).trim();
+}
+
+export async function getChangedFilesForCommit(repoPath: string, ref: string): Promise<string[]> {
+  const output = await git(repoPath, ["show", "--name-only", "--pretty=format:", ref]);
+  return [...new Set(output.split("\n").map((line) => line.trim()).filter(Boolean))];
 }
 
 export async function getChangedFilesForCommits(repoPath: string, commitHashes: string[]): Promise<NumberMap> {
@@ -98,6 +149,16 @@ export async function inferGitHubRepo(repoPath: string): Promise<string> {
     throw new Error("Could not infer GitHub repo from origin. Pass --github-repo owner/name.");
   }
   return sshMatch[1] ?? "";
+}
+
+function parseCommitSummaries(output: string): CommitSummary[] {
+  return output
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [hash = "", date = "", ...subjectParts] = line.split("\t");
+      return { hash, date, subject: subjectParts.join("\t") };
+    });
 }
 
 function parsePorcelainFile(line: string): string {

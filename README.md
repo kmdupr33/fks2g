@@ -40,6 +40,15 @@ Source references: [#36491 Bug:](https://github.com/facebook/react/issues/36491)
 
 If the CLI is run against a PR in a github action  environment, it'll attempt to post the anaylsis as a comment on the PR.
 
+### Benchmarking risk ratings
+
+Use `benchmark` with the same options as `analyze`, plus a commit range. For each commit in the range, fks2g runs a point-in-time risk analysis using only git change frequency, recent bug-fix counts, and GitHub issue context available as of that commit. It then checks the following 30 days of commits to see whether each assessed file changed or was touched by a bug-fix commit. Low, medium, and high risk ratings are scored as 0.33, 0.66, and 0.99 probabilities, and the command reports the mean squared error against the observed outcomes.
+
+```sh
+OPENAI_API_KEY=<KEY> npx fks2g benchmark --repo ../react --github-repo facebook/react --commit-range main~20..main --format markdown
+```
+
+You can also use `--from-commit` and `--to-commit` instead of `--commit-range`; `--forecast-days` defaults to 30. If no files are passed, each benchmark step assesses the files changed by that commit.
 
 ## Docs
 
