@@ -22,7 +22,7 @@ export async function run(argv: string[]): Promise<void> {
 
   program
     .name("fks2g")
-    .description("Estimate code-change risk from git history, recent bug fixes, and GitHub ticket similarity.")
+    .description("Estimate code-change risk from git history, recent bug fixes, and ticket similarity.")
     .version("0.1.0");
 
   program
@@ -31,10 +31,11 @@ export async function run(argv: string[]): Promise<void> {
     .option("--repo <path>", "Git repository path.", ".")
     .addOption(
       new Option("--embedding-source <source>", "Text source to embed and compare against file names.")
-        .choices(["github-issues", "text-folder"])
+        .choices(["github-issues", "linear-issues", "text-folder"])
         .default("github-issues"),
     )
     .option("--github-repo <owner/name>", "GitHub repository to read issues from. Defaults to the origin remote.")
+    .option("--linear-team-id <team>", "Linear team key to filter issues when --embedding-source linear-issues is used.")
     .option("--bug-recency-days <days>", "Days of commit history to inspect for bug fixes.", parsePositiveInteger, 90)
     .option("--issue-recency-days <days>", "Days of GitHub issues to fetch.", parsePositiveInteger, 30)
     .option("--issue-label <label>", "GitHub issue label filter. Can be repeated.", collect, [])

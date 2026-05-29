@@ -2,8 +2,9 @@ export type NumberMap = Record<string, number>;
 
 export interface AnalyzeOptions {
   repo: string;
-  embeddingSource: "github-issues" | "text-folder";
+  embeddingSource: "github-issues" | "linear-issues" | "text-folder";
   githubRepo?: string;
+  linearTeamId?: string;
   bugRecencyDays: number;
   issueRecencyDays: number;
   issueLabel: string[];
@@ -52,7 +53,7 @@ export interface GitHubIssue {
 
 export interface EmbeddingDocument {
   id: string;
-  source: "github-issues" | "text-folder";
+  source: "github-issues" | "linear-issues" | "text-folder";
   title: string;
   body: string;
   metadata: Record<string, string | number | string[]>;

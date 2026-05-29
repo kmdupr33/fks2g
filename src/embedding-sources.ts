@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { fetchRecentIssues, resolveGitHubToken } from "./github.js";
 import { inferGitHubRepo } from "./git.js";
+import { fetchRecentLinearIssues, resolveLinearToken } from "./linear.js";
 import type { AnalyzeOptions, EmbeddingDocument } from "./types.js";
 
 interface LoadEmbeddingDocumentsOptions {
@@ -17,6 +18,21 @@ export async function loadEmbeddingDocuments({
     return {
       documents: await loadTextFolderDocuments(options),
       repoLabel: options.textFolder ?? "text-folder",
+    };
+  }
+
+  if (options.embeddingSource === "linear-issues") {
+    const linearToken = resolveLinearToken();
+    const documents = await fetchRecentLinearIssues({
+      recencyDays: options.issueRecencyDays,
+      teamId: options.linearTeamId,
+      token: linearToken.token,
+      tokenSource: linearToken.source,
+    });
+
+    return {
+      repoLabel: options.linearTeamId ? `linear:${options.linearTeamId}` : "linear",
+      documents,
     };
   }
 

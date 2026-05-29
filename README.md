@@ -12,7 +12,7 @@ And for devs who have realized that this code review strategy leads to a finger 
 
 To inform how closely to review a code change, the CLI collects:
 
-- cosine similarity between file-name embeddings and configurable project text sources
+- cosine similarity between file-name embeddings and configurable issue/text sources
 - an LLM judgment about whether the closest files are likely to change soon based on source documents
 - recent bug-fix commits classified by an LLM
 - file change frequency from git history
@@ -40,6 +40,8 @@ Source references: [#36491 Bug:](https://github.com/facebook/react/issues/36491)
 
 If the CLI is run against a PR in a github action  environment, it'll attempt to post the anaylsis as a comment on the PR.
 
+
+Set `--embedding-source linear-issues` to compare against recent Linear issues (using `LINEAR_API_KEY` or `LINEAR_TOKEN`). You can optionally filter by team key with `--linear-team-id`
 
 ## Docs
 
