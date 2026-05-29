@@ -19,6 +19,8 @@ export interface AnalyzeOptions {
   embeddingModel: string;
   format: "markdown" | "json";
   quiet?: boolean;
+  asOfCommit?: string;
+  asOfDate?: string;
 }
 
 export interface CommitSummary {
@@ -157,4 +159,51 @@ export interface RiskResult {
     riskRationale: string;
   };
   files: RiskFile[];
+}
+
+
+export interface BenchmarkOptions extends AnalyzeOptions {
+  fromCommit?: string;
+  toCommit?: string;
+  commitRange?: string;
+  forecastDays: number;
+}
+
+export interface BenchmarkFileResult {
+  commit: string;
+  date: string;
+  file: string;
+  level: "low" | "medium" | "high";
+  prediction: number;
+  actual: 0 | 1;
+  squaredError: number;
+  changedInForecastWindow: boolean;
+  bugFixInForecastWindow: boolean;
+}
+
+export interface BenchmarkCommitResult {
+  commit: string;
+  shortCommit: string;
+  date: string;
+  subject: string;
+  filesAnalyzed: number;
+  mse: number;
+  files: BenchmarkFileResult[];
+}
+
+export interface BenchmarkResult {
+  repo: string;
+  generatedAt: string;
+  inputs: RiskResult["inputs"] & {
+    fromCommit?: string;
+    toCommit?: string;
+    commitRange?: string;
+    forecastDays: number;
+  };
+  summary: {
+    commitsBenchmarked: number;
+    filesBenchmarked: number;
+    mse: number;
+  };
+  commits: BenchmarkCommitResult[];
 }

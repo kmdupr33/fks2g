@@ -7,6 +7,7 @@ interface FetchRecentIssuesOptions {
   labels: string[];
   token?: string;
   tokenSource?: string;
+  asOfDate?: string;
 }
 
 interface GitHubIssueResponse {
@@ -26,10 +27,12 @@ export async function fetchRecentIssues({
   labels,
   token,
   tokenSource,
+  asOfDate,
 }: FetchRecentIssuesOptions): Promise<GitHubIssue[]> {
-  const since = new Date(Date.now() - recencyDays * 24 * 60 * 60 * 1000).toISOString();
+  const asOf = asOfDate ? new Date(asOfDate) : new Date();
+  const since = new Date(asOf.getTime() - recencyDays * 24 * 60 * 60 * 1000).toISOString();
   const url = new URL(`https://api.github.com/repos/${repo}/issues`);
-  url.searchParams.set("state", "open");
+  url.searchParams.set("state", asOfDate ? "all" : "open");
   url.searchParams.set("since", since);
   url.searchParams.set("per_page", "100");
   if (labels.length > 0) {
@@ -48,6 +51,7 @@ export async function fetchRecentIssues({
   const issues = (await response.json()) as GitHubIssueResponse[];
   return issues
     .filter((issue) => !issue.pull_request)
+    .filter((issue) => !asOfDate || new Date(issue.updated_at) <= asOf)
     .map((issue) => ({
       id: issue.id,
       number: issue.number,
